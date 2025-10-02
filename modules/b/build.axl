@@ -1,0 +1,9 @@
+def _build_impl(ctx):
+    pass
+
+
+
+build = task(
+    implementation = _build_impl,
+    args = {}
+)
