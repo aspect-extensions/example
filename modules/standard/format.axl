@@ -1,0 +1,65 @@
+"""Define the 'format' task
+
+Format builds a multi-formatter target and then runs it on the changed files.
+It's a simple example of interaction with version control, which Bazel only does via the workspace_status_command.
+"""
+
+load("@aspect/runnable.axl", "spawn")
+
+
+def exec(command: std.process.command):
+    return command.stdout("piped").spawn().wait_with_output().stdout.strip()
+
+def find_changed_files(process, base_ref: str = "origin/main"):
+    merge_base = exec(process.command("git").args(["merge-base", "HEAD", base_ref]))
+    return exec(process.command("git").args(["diff", "--name-only", merge_base]))
+
+# buildifier: disable=function-docstring
+def impl(ctx: task_context) -> int:
+    out = ctx.std.io.stdout
+    changed_files = find_changed_files(ctx.std.process)
+    out.write("Formatting changed files:\n%s" % changed_files)
+
+    build = ctx.bazel.build(
+        ctx.args.format_target,
+        events = True,
+        bazel_flags = ["--build_runfile_links"],
+    )
+
+    entrypoint: str | None = None
+
+    for event in build.events():
+        if event.type == "named_set_of_files":
+            for file in event.payload.files:
+                pprint(file)
+                if len(file.path_prefix) == 0:
+                    continue
+                entrypoint = file.file.uri.removeprefix("file://")
+                break
+
+    status = build.wait()
+
+    if not status.success:
+        fail("Building the formatter has failed.")
+
+    if not entrypoint:
+        fail("Failed to determine the formatter entrypoint.")
+
+    exit = spawn(
+        ctx,
+        entrypoint = entrypoint,
+        args = changed_files.split("\n")
+    ).wait()
+
+    if not exit.success:
+        out.write("\x1b[0;31mERROR\x1b[0m: format exited with code %d\n" % exit.code)
+
+    return exit.code
+    return 0
+
+format = task(
+    implementation = impl,
+    args = {
+        "format_target": args.string(default = "//tools/format"),
+    },
+)

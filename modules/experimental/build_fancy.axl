@@ -1,0 +1,113 @@
+# a helper function to create a utf-8 string that deallocates the previous string if it was previously allocated
+def string(initial_value, memory, tui_api, callback):
+    def override(state, memory, tui_api, callback, value):
+        # deallocate previous string if it was previously allocated
+        # Safety: assumes that the program does not hold on to the pointer. (it does)
+        # if state["ptr"]:
+            # tui_api.dealloc(state["ptr"], state["len"])
+        data_len = len(value)
+        data_ptr = tui_api.alloc(data_len)
+        memory.write(data_ptr, value.codepoints())
+        callback(data_ptr, data_len)
+        state["ptr"] = data_ptr
+        state["len"] = data_len
+    state = {
+        "ptr": None,
+        "len": 0
+    }
+
+    override(state, memory, tui_api, callback, initial_value)
+
+    return struct(
+        set = lambda value: override(state, memory, tui_api, callback, value)
+    )
+
+BuildState = enum(
+    "running",
+    "finished",
+    "failed",
+    "cancelled",
+    "idle",
+)
+
+ActionState = enum(
+    "started",
+    "finished",
+    "failed",
+    "cancelled",
+    "idle",
+)
+
+
+def impl(ctx):
+    tui = ctx.wasm.instantiate(
+        "../../crates/example-tui/target/wasm32-wasip1/release/example-tui.wasm",
+    )
+    tui.start()
+
+    memory = tui.get_memory("memory")
+    memory.grow(64*64) # add 64*64 pages of 64kib
+    tui_api = tui.exports
+
+    state = dict(
+        build_state = BuildState("idle"),
+        number_of_actions = 0,
+        version = "Bazel 0.0.0",
+        actions = []
+    )
+
+    state_str = string(
+        json.encode(state),
+        memory,
+        tui_api,
+        tui_api.set_screen_state,
+    )
+
+    tui_api.clear();
+    tui_api.render()
+
+    build = ctx.bazel.build("//:*", events = True);
+    for event in build.events():
+
+        if event.type == "build_started":
+            state["version"] = "Demo %s (pid %s) ###" % (event.payload.build_tool_version, event.payload.server_pid)
+            state["build_state"] = BuildState("running")
+        elif event.type == "build_finished":
+            state["build_state"] = BuildState("finished")
+        elif event.type == "action_completed":
+            state["number_of_actions"] += 1;
+            state["actions"].append(
+                dict(
+                    mnemonic = event.payload.type,
+                    label = event.id.label,
+                    state = ActionState("finished") if event.payload.success else ActionState("failed")
+                )
+            )
+        elif event.type == "fetch":
+            state["actions"].append(
+                dict(
+                    mnemonic = "Fetch",
+                    label = event.id.url[0:70] + "...",
+                    state = ActionState("finished")
+                )
+            )
+
+        else:
+            continue
+
+        # limit the number of actions to 15
+        if len(state["actions"]) > 15:
+            state["actions"].pop(0)
+        state_str.set(json.encode(state))
+        tui_api.render()
+
+    tui_api.clear();
+    tui_api.restore_terminal()
+
+build_fancy = struct(
+    implementation = impl,
+    args = {
+        "target": args.string(),
+    },
+    groups = ["experimental"],
+)

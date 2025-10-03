@@ -1,9 +1,0 @@
-def _lint_impl(ctx):
-    pass
-
-
-
-lint = task(
-    implementation = _lint_impl,
-    args = {}
-)

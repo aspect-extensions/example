@@ -1,0 +1,31 @@
+"""A task that queries for all targets of a certain kind, then builds those and archives the resulting output.
+
+In particular, the goal here is to generate documentation for the repository.
+
+This is used in https://github.com/bazelbuild/bazel-central-registry/issues/5593
+For example: https://github.com/bazel-contrib/tar.bzl/blob/0c1355aa352f4adaaa7aafded00b8d033202a37e/.github/workflows/release_prep.sh#L18-L24
+"""
+
+# buildifier: disable=function-docstring
+def impl(ctx: task_context) -> int:
+    doc_target_set = ctx.bazel.query().raw('kind("starlark_doc_extract rule", //...)').eval()
+
+    if len(doc_target_set) == 0:
+        ctx.std.io.stderr.write("No documentation targets found.\n")
+        return 0
+
+    ctx.bazel.build(
+        *[str(target) for target in doc_target_set]
+    ).wait()
+
+    # TODO: read named_set_of_files and create a tarball from files matching a pattern
+    # tar --create --auto-compress \
+    #     --directory "$(bazel --output_base="$docs" info bazel-bin)" \
+    #     --file "$GITHUB_WORKSPACE/${ARCHIVE%.tar.gz}.docs.tar.gz" .
+
+    return 0
+
+docgen = task(
+    implementation = impl,
+    args = {},
+)

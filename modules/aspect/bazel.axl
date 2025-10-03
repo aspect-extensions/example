@@ -1,0 +1,54 @@
+BOUNDARY_FILES = [
+    "MODULE.bazel",
+    "WORKSPACE",
+    "REPO.bazel", "WORKSPACE.bzlmod"
+]
+
+#TODO:
+#[cfg(target_os = "macos")]
+ROOT_MAC: str = "/var/tmp"
+
+def find_repo_root(ctx: task_context) -> None | str:
+    "finds the repo root"
+    std = ctx.std
+    cwd = std.env.current_dir().split("/")
+    # walk up the directory tree until we find a boundary file
+    for i, _ in enumerate(cwd):
+        current_dir = cwd[:len(cwd) - i]
+        for boundary in BOUNDARY_FILES:
+            boundary_path = "/".join(current_dir + [boundary]);
+            if std.fs.exists(boundary_path):
+                return "/".join(current_dir)
+
+    return None
+
+def md5(ctx, text):
+    "md5 of a text"
+    child = ctx.std.process.command("md5") \
+     .args(["-s", text]) \
+     .stdout("piped") \
+     .spawn();
+    return child.wait_with_output().stdout
+
+def get_default_output_base(ctx: task_context):
+    "get path to the default output base"
+    root = find_repo_root(ctx)
+    hash = md5(ctx, root)
+    user = ctx.std.env.var("USER")
+    return f"{ROOT_MAC}/_bazel_{user}/{hash}"
+
+def parse_bazelrc(bazelrc: str):
+    "parse bazelrc"
+    mapping = {}
+    for line in bazelrc.splitlines():
+        if line.startswith("#") or len(line.strip()) == 0:
+            continue
+        seg = line.split(" ")
+        cfg_or_import = seg[0]
+        if cfg_or_import == "import" or cfg_or_import == "try-import":
+            print("TODO: handle import")
+            continue
+
+        mapping.setdefault(cfg_or_import, []).extend(seg[1:])
+
+    pprint(mapping)

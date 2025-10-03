@@ -1,0 +1,39 @@
+"Define a 'gazelle' task which runs gazelle in the working directory"
+
+load("@aspect/runnable.axl", "spawn")
+
+# buildifier: disable=function-docstring
+def impl(ctx: task_context) -> int:
+    out = ctx.std.io.stdout
+    build = ctx.bazel.build(
+        ctx.args.gazelle_target,
+        events = True,
+        bazel_flags = ["--build_runfile_links"],
+    )
+
+    entrypoint: str | None = None
+    for event in build.events():
+        if event.type == "named_set_of_files":
+            for file in event.payload.files:
+                if len(file.path_prefix) == 0:
+                    continue
+                if file.file.uri.endswith("-runner.bash"):
+                    continue
+
+                entrypoint = file.file.uri.removeprefix("file://")
+                break
+
+    exit = spawn(ctx, entrypoint = entrypoint, args = []).wait()
+
+    if not exit.success:
+        out.write("\x1b[0;31mERROR\x1b[0m: gazelle exited with code %d\n" % exit.code)
+
+    return exit.code
+    return 0
+
+gazelle = task(
+    implementation = impl,
+    args = {
+        "gazelle_target": args.string(default = "//:gazelle"),
+    },
+)

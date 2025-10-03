@@ -1,0 +1,15 @@
+load("./build_fancy.axl", _build_fancy = "build_fancy")
+
+build_fancy = task(
+    implementation = _build_fancy.implementation,
+    args = _build_fancy.args,
+    groups = _build_fancy.groups,
+)
+
+load("./buildozer_source.axl", _buildozer_source = "buildozer_source")
+
+buildozer_source = task(
+    implementation = _buildozer_source.implementation,
+    args = _buildozer_source.args,
+    groups = _buildozer_source.groups,
+)

@@ -1,0 +1,33 @@
+def impl(ctx: task_context) -> int:
+    out = ctx.std.io.stdout
+    build = ctx.bazel.build(
+        "//:*",
+        events = True,
+        bazel_flags = ["--isatty=" + str(int(out.is_tty))]
+    );
+    for event in build.events():
+        if event.kind == "progress":
+            out.write(event.payload.stdout)
+            out.write(event.payload.stderr)
+
+    for entry in build.execution_logs():
+        print(entry.type)
+        if type(entry.type) == "invocation":
+            print(entry.type.id)
+        if type(entry.type) == "spawn":
+            print(entry.type.mnemonic)
+            print(entry.type.target_label)
+            print(entry.type.cache_hit)
+            print(entry.type.cacheable)
+
+
+
+    build.wait()
+    return 0
+
+execlog = task(
+    implementation = impl,
+    args = {
+        "targets": args.positional(min = 1),
+    }
+)

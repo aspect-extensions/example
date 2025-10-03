@@ -1,0 +1,31 @@
+def _build(ctx, target_set):
+    out = ctx.std.io.stdout
+    targets = [str(target) for target in target_set]
+
+    build = ctx.bazel.build(
+        events = True,
+        bazel_flags = ["--isatty=" + str(int(out.is_tty))],
+        *targets,
+    )
+
+    for event in build.events():
+        if event.type == "progress":
+            out.write(event.payload.stdout)
+            out.write(event.payload.stderr)
+
+def _impl(ctx):
+    print("Querying deliverables 📦")
+    target_set = ctx.bazel.query().raw("attr(generator_function, release, //crates/...)").eval()
+    print("Found %s deliverables" % len(target_set))
+    print("Building targets")
+    _build(ctx, target_set)
+    for target in target_set:
+        print("Releasing: %s" % target)
+
+    return 0
+
+release = struct(
+    implementation = _impl,
+    args = {},
+    groups = ["experimental"],
+)

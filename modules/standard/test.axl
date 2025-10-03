@@ -1,0 +1,40 @@
+"""
+Implement a 'test' task that wraps a test command.
+
+Improvements over 'bazel test' command:
+
+- produce compact execution log to a tmp file
+- write output locations for GitHub actions to locate artifacts
+"""
+
+# buildifier: disable=function-docstring
+def impl(ctx: task_context) -> int:
+    out = ctx.std.io.stdout
+    temp_dir = ctx.std.env.temp_dir()
+    execlog = temp_dir + "/execlog"
+    targets = ctx.args.targets or ["//..."]
+    test = ctx.bazel.build(
+        bazel_flags = [
+            "--execution_log_compact_file=" + execlog,
+            "--isatty=" + str(int(out.is_tty)),
+        ],
+        events = True,
+        bazel_verb = "test",
+        *targets
+    )
+    for event in test.events():
+        if event.type == "progress":
+            out.write(event.payload.stdout)
+            out.write(event.payload.stderr)
+            out.flush()
+
+    github_output = ctx.std.env.var("GITHUB_OUTPUT")
+    if github_output:
+        ctx.std.fs.write(github_output, "execlog=" + execlog)
+
+test = task(
+    args = {
+        "targets": args.positional(min = 1),
+    },
+    implementation = impl,
+)
