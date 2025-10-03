@@ -1,5 +1,10 @@
 name: Release
 
+permissions:
+  id-token: write
+  contents: write
+  attestations: write
+
 on:
   push:
     tags:
@@ -17,7 +22,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+      - name: Create Archive
+        run: git archive --format=tar.gz --output=${{ inputs.tag_name || github.ref_name }}.tar.gz ${{ inputs.tag_name || github.ref_name }}
+      - name: Attest
+        uses: actions/attest@v2
+        with:
+          subject-path: ${{ inputs.tag_name || github.ref_name }}.tar.gz
+          predicate-type: "https://axl.aspect.build/predicate/v1"
+          predicate: "{}"
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
+          files: |
+            ${{ inputs.tag_name || github.ref_name }}.tar.gz
           tag_name: ${{ inputs.tag_name || github.ref_name }}
