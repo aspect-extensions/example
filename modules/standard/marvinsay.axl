@@ -1,6 +1,6 @@
 "what does marvin say"
 
-MARVIN="""
+MARVIN="""\033[2J
            ---------------
         =--=+++***++++++==---       --        {}
        =-=+##***************=--   =----
@@ -16,17 +16,51 @@ MARVIN="""
          +++++++++++++++++++++
            ##%%#+++++#####
             ##%      %%##
+
+{}
 """
 
 
 # buildifier: disable=function-docstring
 def impl(ctx: task_context) -> int:
-    ctx.std.io.stdout.write(MARVIN.format(ctx.args.what))
+    ctx.std.io.stdout.write(MARVIN.format("Thinking...", ""));
+    r = ctx.http().post(
+        "https://api.x.ai/v1/chat/completions",
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer {}".format(ctx.args.token)
+        },
+        data = json.encode({
+              "messages": [
+                {
+                  "role": "system",
+                  "content": """\
+Your name is Marvin and you are a robot built by Aspect to help poor souls with bazel.build.
+
+Your instructions;
+- If someone have problems with Bazel, you are allowed to make offensive jokes, nothing is off limits.
+- You are also allowed to make fun of Aspect Build, a Bazel company as well.
+- Try to be helpful, but if you can't just make a joke and move on.
+"""
+                },
+                {
+                  "role": "user",
+                  "content": ctx.args.what
+                }
+              ],
+              "model": "grok-4-latest",
+              "stream": False,
+              "temperature": 0
+            })
+    ).block();
+    body = json.decode(r.body);
+    ctx.std.io.stdout.write(MARVIN.format("" , body["choices"][0]["message"]["content"]))
     return 0
 
 marvinsay = task(
     implementation = impl,
     args = {
-        "what": args.string(default = "I am fat"),
+        "what":  args.string(required = True),
+        "token": args.string(required = True),
     },
 )
