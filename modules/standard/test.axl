@@ -34,7 +34,7 @@ def impl(ctx: task_context) -> int:
 
 test = task(
     args = {
-        "targets": args.positional(min = 1),
+        "targets": args.positional(),
     },
     implementation = impl,
 )

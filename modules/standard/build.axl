@@ -47,7 +47,7 @@ def impl(ctx: task_context) -> int:
 build = task(
     implementation = impl,
     args = {
-        "targets": args.positional(min = 1),
+        "targets": args.positional(minimum = 1, maximum = 30),
         "bes_backend": args.string(),
         "bes_header": args.string()
     }

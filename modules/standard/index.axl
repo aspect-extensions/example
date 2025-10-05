@@ -3,13 +3,9 @@ load("./run.axl", _run = "run")
 load("./test.axl", _test = "test")
 load("./coverage.axl", _coverage = "coverage")
 load("./gazelle.axl", _gazelle = "gazelle")
-load("./lint.axl", _lint = "lint")
-load("./format.axl", _format = "format")
 
 build = _build
 run = _run
 test = _test
 coverage = _coverage
 gazelle = _gazelle
-lint = _lint
-format = _format
