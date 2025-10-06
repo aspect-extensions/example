@@ -1,0 +1,7 @@
+"""Extract build graph information for C++ editors & IDEs
+  
+Based on https://github.com/hedronvision/bazel-compile-commands-extractor
+Well-documented use case for Buck2 Extension Language.
+"""
+
+# TODO(alexeagle): sketch implementation
