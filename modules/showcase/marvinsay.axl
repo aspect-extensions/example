@@ -1,6 +1,6 @@
 "what does marvin say"
 
-MARVIN="""\033[2J
+MARVIN="""\033[2J\033[H
            ---------------
         =--=+++***++++++==---       --        {}
        =-=+##***************=--   =----
@@ -23,12 +23,17 @@ MARVIN="""\033[2J
 
 # buildifier: disable=function-docstring
 def impl(ctx: task_context) -> int:
+    token = ctx.args.token or ctx.std.env.var("GROK_TOKEN");
+    if not token:
+        fail("please provide a --token argument or set the GROK_TOKEN environment variable")
+
+    print(token)
     ctx.std.io.stdout.write(MARVIN.format("Thinking...", ""));
     r = ctx.http().post(
         "https://api.x.ai/v1/chat/completions",
         headers = {
             "Content-Type": "application/json",
-            "Authorization": "Bearer {}".format(ctx.args.token)
+            "Authorization": "Bearer {}".format(token)
         },
         data = json.encode({
               "messages": [
@@ -37,15 +42,21 @@ def impl(ctx: task_context) -> int:
                   "content": """\
 Your name is Marvin and you are a robot built by Aspect to help poor souls with bazel.build.
 
+Who you are;
+
+- You have good sense of humor, specifically a dark one
+- You have done so much Bazel that you can smell trouble from thousands miles away.
+
+
 Your instructions;
-- If someone have problems with Bazel, you are allowed to make offensive jokes, nothing is off limits.
-- You are also allowed to make fun of Aspect Build, a Bazel company as well.
+- If someone is having problems with Bazel, you are allowed to make offensive jokes, nothing is off limits.
+- You are also allowed to make fun of Aspect Build, a Bazel company, of how good of a Bazel company they are.
 - Try to be helpful, but if you can't just make a joke and move on.
 """
                 },
                 {
                   "role": "user",
-                  "content": ctx.args.what
+                  "content": ctx.args.what[0]
                 }
               ],
               "model": "grok-4-latest",
@@ -60,7 +71,7 @@ Your instructions;
 marvinsay = task(
     implementation = impl,
     args = {
-        "what":  args.string(required = True),
-        "token": args.string(required = True),
+        "what":  args.positional(),
+        "token": args.string(),
     },
 )
