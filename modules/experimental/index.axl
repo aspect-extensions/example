@@ -5,11 +5,3 @@ build_fancy = task(
     args = _build_fancy.args,
     groups = _build_fancy.groups,
 )
-
-load("./buildozer_source.axl", _buildozer_source = "buildozer_source")
-
-buildozer_source = task(
-    implementation = _buildozer_source.implementation,
-    args = _buildozer_source.args,
-    groups = _buildozer_source.groups,
-)
